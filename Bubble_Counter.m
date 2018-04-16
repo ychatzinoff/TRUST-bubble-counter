@@ -22,7 +22,7 @@ function varargout = Bubble_Counter(varargin)
 
 % Edit the above text to modify the response to help Bubble_Counter
 
-% Last Modified by GUIDE v2.5 15-Mar-2018 19:09:21
+% Last Modified by GUIDE v2.5 16-Apr-2018 10:07:07
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -60,17 +60,31 @@ for this_name = {'rect','ffind','raw_image','Nframes'};
         handles = rmfield(handles,this_name);
     end
 end
+% set default values
 handles.frames_to_track = 1;
 handles.bubble_threshold = get(handles.threshold_slider,'Value');
 handles.ind = get(handles.slider1,'Value');
 handles.ffind = 1;
 set(handles.slider1,'Value',1);
-[Filename,Pathname] = uigetfile('*.ima');
+[Filename,Pathname] = uigetfile({'*.ima';'*.avi'});
 cd(Pathname)
 % hourglass
 set(handles.figure1, 'pointer', 'watch')
 drawnow;
+% if it's a dicom your life is simple
+if strcmp(Filename(end),'A')
 handles.raw_image = dicomread(Filename);
+
+else % its an AVI
+    myvid = VideoReader(Filename);
+    len = myvid.Duration * myvid.FrameRate;
+    % initialize variable
+    handles.raw_image = (zeros(myvid.Height,myvid.Width,3,len,'uint8'));
+    for ind = 1:len
+        handles.raw_image(:,:,:,ind) = readFrame(myvid,'native');
+        ind = ind+1;
+    end
+end
 % back to pointer
 set(handles.figure1, 'pointer', 'arrow')
 cd(here);
@@ -113,7 +127,7 @@ if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColo
 end
 
 
-% --- Executes on button press in select_roi.
+% --- Lets user select ROI
 function select_roi_Callback(hObject, eventdata, handles)
 axes(handles.axes1);
 if isfield(handles,'h')
@@ -132,7 +146,7 @@ set(handles.figure1, 'pointer', 'arrow')
 handles = myplot(handles.rect);
 
 
-
+% plot the roi in secondary graph
 function[handles] =  myplot(rect)
 colormap gray
 % get handles
@@ -259,6 +273,10 @@ end
 
 function frames_to_track_Callback(hObject, eventdata, handles)
 handles.frames_to_track = str2num(get(hObject,'String'));
+if handles.frames_to_track > (handles.Nframes - handles.ffind-1)
+    handles.frames_to_track = (handles.Nframes - handles.ffind-1);
+    set(hObject,'String',num2str((handles.Nframes - handles.ffind-1),'%d'));
+end
 guidata(hObject,handles);
 
 
@@ -305,3 +323,39 @@ bub_stats = {num2str(max(handles.nbubs(handles.ffind+1:(handles.ffind+handles.fr
                num2str(mean(handles.nbubs(handles.ffind+1:(handles.ffind+handles.frames_to_track))), 'Average number of bubbles = %0.1f')};
 set(handles.bub_stats,'String',bub_stats);
 delete(h)  
+
+
+% --- Executes on button press in save_data.
+function save_data_Callback(hObject, eventdata, handles)
+fid = fopen([get(handles.saveas_filename,'String') '.txt'],'w');
+bub_stats = get(handles.bub_stats,'String');
+fprintf(fid,[bub_stats{1} '\n']);
+fprintf(fid,[bub_stats{2} '\n']);
+fprintf(fid,[bub_stats{3} '\n']);
+fprintf(fid,'\nBubbles per Frame:\n');
+fprintf(fid,'%d, ',handles.nbubs);
+fclose(fid);
+
+
+
+
+function saveas_filename_Callback(hObject, eventdata, handles)
+% hObject    handle to saveas_filename (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of saveas_filename as text
+%        str2double(get(hObject,'String')) returns contents of saveas_filename as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function saveas_filename_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to saveas_filename (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
