@@ -79,7 +79,7 @@ else % its an AVI
     myvid = VideoReader(Filename);
     len = myvid.Duration * myvid.FrameRate;
     % initialize variable
-    handles.raw_image = (zeros(myvid.Height,myvid.Width,3,len,'uint8'));
+    handles.raw_image = (zeros(myvid.Height,myvid.Width,3,round(len),'uint8'));
     for ind = 1:len
         handles.raw_image(:,:,:,ind) = readFrame(myvid,'native');
         ind = ind+1;
